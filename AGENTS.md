@@ -27,9 +27,18 @@ flutter build apk --debug
 
 ## Add flow
 - The floating add button is always present. On General it accepts bill or income; on Bills it is locked to bill; on Income it is locked to income. Secondary tabs keep the universal sheet.
-- A locked screen passes `fixedKind`. A fixed kind hides the sheet's Bill/Income toggle and forces the saved kind. Scoping is decided by callers in `HomeShell`, not inside the sheet.
+- A locked screen passes `fixedKind`. A fixed kind hides the sheet's Bill/Income toggle (key `kind-toggle`) and shows a `Bill`/`Income` badge next to the title. Scoping is decided by callers in `HomeShell`, not inside the sheet.
+- The sheet header has a close `×` button with tooltip `Close`. Keep the `Add transaction` and `Close` tooltips and the `Log a transaction` title — tests rely on them.
 - Saving resets `_navIndex = 0` and jumps to Bills (`1`) or Income (`2`) based on the entry kind.
-- Tests find the button by tooltip `Add transaction` and the sheet by `Log a transaction`; keep those strings.
+
+## Secondary pages
+- Transactions, Analytics and Settings (`secondary_pages.dart`) mirror the Stitch section screens with the same names. Analytics uses page-private `_AnalyticsMetric` and `_AllocationLegend` widgets instead of the shared `MetricTile`, so dashboard goldens stay untouched.
+
+## Pushed screens
+- `notifications_page.dart` — opened by the header bell (tooltip `Notifications`); local filter chips and mark-all-read state live in the page.
+- `edit_profile_page.dart` — opened by Settings → `Edit`.
+- `vault_pages.dart` — `UnlockVaultPage` opens from Settings → `Privacy & security`; `CreateVaultPage` opens from Unlock Vault → `Switch Local Vault`, then `CreateVaultStep2Page` and `CreateVaultStep3Page` chain the 3-step setup. Both flows are demo screens with no persistence.
+- These routes are outside the goldens; the six dashboard goldens must not change. Stitch's “FlowFinance - Personal Finance & Cash Flow Tracker” canvas screen is a duplicate of Create Local Vault.
 
 ## Tests and goldens
 - `flutter test` compares six goldens in `test/goldens/`: three dashboards at 390×844 plus full pages at 390×1900. Any visual change fails until goldens are regenerated and inspected.

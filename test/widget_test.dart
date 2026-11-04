@@ -128,21 +128,10 @@ void main() {
     await tester.tap(find.byTooltip('Add transaction'));
     await tester.pumpAndSettle();
 
-    expect(
-      find.descendant(
-        of: find.byType(AddEntrySheet),
-        matching: find.text('Bill'),
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(
-        of: find.byType(AddEntrySheet),
-        matching: find.text('Income'),
-      ),
-      findsOneWidget,
-    );
+    expect(find.byKey(const Key('kind-toggle')), findsOneWidget);
     expect(find.text('Save Bill'), findsOneWidget);
+    expect(find.text('USD'), findsOneWidget);
+    expect(find.byTooltip('Close'), findsOneWidget);
   });
 
   testWidgets('income dashboard add sheet only accepts income', (tester) async {
@@ -153,19 +142,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Save Income'), findsOneWidget);
-    expect(
-      find.descendant(
-        of: find.byType(AddEntrySheet),
-        matching: find.text('Bill'),
-      ),
-      findsNothing,
-    );
+    expect(find.byKey(const Key('kind-toggle')), findsNothing);
     expect(
       find.descendant(
         of: find.byType(AddEntrySheet),
         matching: find.text('Income'),
       ),
-      findsNothing,
+      findsOneWidget,
     );
   });
 
@@ -177,12 +160,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Save Bill'), findsOneWidget);
+    expect(find.byKey(const Key('kind-toggle')), findsNothing);
     expect(
       find.descendant(
         of: find.byType(AddEntrySheet),
-        matching: find.text('Income'),
+        matching: find.text('Bill'),
       ),
-      findsNothing,
+      findsOneWidget,
     );
   });
 
@@ -194,13 +178,26 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Save Income'), findsOneWidget);
+    expect(find.byKey(const Key('kind-toggle')), findsNothing);
     expect(
       find.descendant(
         of: find.byType(AddEntrySheet),
-        matching: find.text('Bill'),
+        matching: find.text('Income'),
       ),
-      findsNothing,
+      findsOneWidget,
     );
+  });
+
+  testWidgets('add sheet close button dismisses without saving', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    await tester.tap(find.byTooltip('Add transaction'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AddEntrySheet), findsNothing);
   });
 
   testWidgets('floating add action stays available on every dashboard', (
@@ -233,6 +230,9 @@ void main() {
       find.text('A six-month view of your money momentum.'),
       findsOneWidget,
     );
+    expect(find.text('Avg. velocity: \$5.93k/mo'), findsOneWidget);
+    expect(find.text('Peak performance'), findsOneWidget);
+    expect(find.text('Total committed spend'), findsOneWidget);
 
     await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
@@ -244,9 +244,91 @@ void main() {
       find.text('Every inflow and outflow in one ledger.'),
       findsOneWidget,
     );
+    expect(find.text('+14.2% this month'), findsOneWidget);
+    expect(find.text('-3.8% vs average'), findsOneWidget);
 
     await tester.tap(find.text('Dashboard'));
     await tester.pumpAndSettle();
     expect(find.text('NET CASH FLOW'), findsOneWidget);
+  });
+
+  testWidgets('notification bell opens the notifications screen', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    await tester.tap(find.byTooltip('Notifications'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Notifications'), findsOneWidget);
+    expect(
+      find.text('Stay updated on cash flow, due dates & alerts.'),
+      findsOneWidget,
+    );
+    expect(find.text('Upcoming Due Date'), findsOneWidget);
+
+    await tester.tap(find.text('Income (2)'));
+    await tester.pumpAndSettle();
+    expect(find.text('Deposit Cleared: TechCorp'), findsOneWidget);
+    expect(find.text('Upcoming Due Date'), findsNothing);
+
+    await tester.tap(find.text('All (8)'));
+    await tester.pumpAndSettle();
+    expect(find.text('Upcoming Due Date'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Mark all as read'));
+    await tester.pumpAndSettle();
+    expect(find.text('0 New alerts'), findsOneWidget);
+    expect(find.text('3 unread'), findsNothing);
+  });
+
+  testWidgets('settings edit and privacy rows open the new screens', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Edit'));
+    await tester.pumpAndSettle();
+    expect(find.text('PERSONAL CREDENTIALS'), findsOneWidget);
+    expect(find.text('Alex Morgan'), findsOneWidget);
+    expect(find.text('Save Changes'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+    expect(find.text('PREFERENCES'), findsOneWidget);
+
+    await tester.tap(find.text('Privacy & security'));
+    await tester.pumpAndSettle();
+    expect(find.text('Unlock Vault'), findsOneWidget);
+    expect(find.text('Quick Unlock with Face ID'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Switch Local Vault'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Switch Local Vault'));
+    await tester.pumpAndSettle();
+    expect(find.text('Create Local Vault'), findsOneWidget);
+    expect(find.text('Initialize Local Vault'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Initialize Local Vault'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Initialize Local Vault'));
+    await tester.pumpAndSettle();
+    expect(find.text('Set Access & Security'), findsOneWidget);
+    expect(find.text('Offline Recovery Key'), findsOneWidget);
+    expect(find.text('BIP-39 Standard 128-bit'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Continue to Financial Setup'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue to Financial Setup'));
+    await tester.pumpAndSettle();
+    expect(find.text('Set Initial Balances'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Complete Setup & Open Vault'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Complete Setup & Open Vault'));
+    await tester.pumpAndSettle();
+    expect(find.text('PREFERENCES'), findsOneWidget);
+    expect(find.text('Vault ready. Welcome back, Alex.'), findsOneWidget);
   });
 }

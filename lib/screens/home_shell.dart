@@ -9,6 +9,7 @@ import '../widgets/flow_header.dart';
 import 'bills_dashboard.dart';
 import 'general_dashboard.dart';
 import 'income_dashboard.dart';
+import 'notifications_page.dart';
 import 'secondary_pages.dart';
 
 class HomeShell extends StatefulWidget {
@@ -101,6 +102,15 @@ class _HomeShellState extends State<HomeShell> {
         .showSnackBar(SnackBar(content: Text(message)));
   }
 
+  Future<void> _openNotifications() async {
+    final manage = await Navigator.of(
+      context,
+    ).push<bool>(MaterialPageRoute(builder: (_) => const NotificationsPage()));
+    if (manage == true && mounted) {
+      _selectNav(4);
+    }
+  }
+
   /// Bills and Income dashboards scope quick-add to their own kind.
   /// General and the secondary tabs keep the universal sheet.
   EntryKind? get _fabFixedKind {
@@ -190,9 +200,7 @@ class _HomeShellState extends State<HomeShell> {
                 onDashboardChanged: _selectDashboard,
                 month: _month,
                 onMonthChanged: (value) => setState(() => _month = value),
-                onNotifications: () => _notify(
-                  'You are all caught up. Two bills are due this week.',
-                ),
+                onNotifications: _openNotifications,
                 onProfile: () => _selectNav(4),
               ),
             Expanded(child: _body()),

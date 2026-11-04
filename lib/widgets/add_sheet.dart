@@ -60,6 +60,18 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
   List<String> get _categories =>
       _kind == EntryKind.bill ? _billCategories : _incomeCategories;
 
+  IconData _categoryIcon(String category) => switch (category) {
+    'Housing' => Icons.home_outlined,
+    'Utilities' => Icons.bolt_outlined,
+    'Subscriptions' => Icons.cloud_sync_outlined,
+    'Insurance' => Icons.shield_outlined,
+    'Salary' => Icons.account_balance_outlined,
+    'Freelance' => Icons.design_services_outlined,
+    'Investments' => Icons.trending_up,
+    'Products' => Icons.storefront_outlined,
+    _ => Icons.category_outlined,
+  };
+
   @override
   void dispose() {
     _titleController.dispose();
@@ -119,9 +131,39 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Text(
-                  'Log a transaction',
-                  style: AppText.headlineMd.copyWith(fontSize: 20),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: [
+                          Text(
+                            'Log a transaction',
+                            style: AppText.headlineMd.copyWith(fontSize: 20),
+                          ),
+                          if (widget.fixedKind != null)
+                            _KindBadge(kind: widget.fixedKind!),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Close',
+                      onPressed: () => Navigator.of(context).pop(),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints.tightFor(
+                        width: 32,
+                        height: 32,
+                      ),
+                      icon: const Icon(
+                        Icons.close,
+                        size: 20,
+                        color: AppColors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 3),
                 Text(
@@ -131,6 +173,7 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
                 const SizedBox(height: 16),
                 if (widget.fixedKind == null)
                   Container(
+                    key: const Key('kind-toggle'),
                     height: 42,
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
@@ -178,6 +221,25 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
                   inputFormatters: [
                     FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
                   ],
+                  suffix: Container(
+                    margin: const EdgeInsets.only(right: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceHigh,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      'USD',
+                      style: AppText.labelSm.copyWith(
+                        fontSize: 8.5,
+                        color: AppColors.primary,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 14),
                 _Label('Category'),
@@ -189,6 +251,7 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
                     for (final category in _categories)
                       AppPill(
                         label: category,
+                        icon: _categoryIcon(category),
                         background: _category == category
                             ? AppColors.primary
                             : AppColors.surfaceHigh,
@@ -230,14 +293,49 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    child: Text(
-                      _kind == EntryKind.bill ? 'Save Bill' : 'Save Income',
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.check_circle_outline, size: 17),
+                        const SizedBox(width: 6),
+                        Text(
+                          _kind == EntryKind.bill ? 'Save Bill' : 'Save Income',
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _KindBadge extends StatelessWidget {
+  const _KindBadge({required this.kind});
+
+  final EntryKind kind;
+
+  @override
+  Widget build(BuildContext context) {
+    final isBill = kind == EntryKind.bill;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: (isBill ? AppColors.secondary : AppColors.primary).withValues(
+          alpha: 0.12,
+        ),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        isBill ? 'Bill' : 'Income',
+        style: AppText.labelSm.copyWith(
+          fontSize: 9,
+          color: isBill ? AppColors.secondary : AppColors.primary,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
@@ -307,6 +405,7 @@ class _Field extends StatelessWidget {
     this.keyboardType,
     this.inputFormatters,
     this.textCapitalization = TextCapitalization.none,
+    this.suffix,
   });
 
   final TextEditingController controller;
@@ -315,6 +414,7 @@ class _Field extends StatelessWidget {
   final TextInputType? keyboardType;
   final List<TextInputFormatter>? inputFormatters;
   final TextCapitalization textCapitalization;
+  final Widget? suffix;
 
   @override
   Widget build(BuildContext context) {
@@ -329,6 +429,7 @@ class _Field extends StatelessWidget {
         hintText: hint,
         hintStyle: AppText.bodyMd.copyWith(color: AppColors.muted),
         prefixIcon: Icon(icon, size: 19, color: AppColors.onSurfaceVariant),
+        suffixIcon: suffix,
         filled: true,
         fillColor: AppColors.background,
         contentPadding: const EdgeInsets.symmetric(

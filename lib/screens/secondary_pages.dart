@@ -7,6 +7,8 @@ import '../utils/formatters.dart';
 import '../widgets/cards.dart';
 import '../widgets/charts.dart';
 import '../widgets/common.dart';
+import 'edit_profile_page.dart';
+import 'vault_pages.dart';
 
 class TransactionsPage extends StatefulWidget {
   const TransactionsPage({super.key, required this.transactions});
@@ -55,18 +57,18 @@ class _TransactionsPageState extends State<TransactionsPage> {
                     label: 'INFLOW',
                     value: '+\$6,850.00',
                     color: AppColors.primary,
+                    caption: '+14.2% this month',
+                    captionIcon: Icons.trending_up,
                   ),
                 ),
-                Container(
-                  width: 1,
-                  height: 40,
-                  color: AppColors.divider,
-                ),
+                Container(width: 1, height: 40, color: AppColors.divider),
                 Expanded(
                   child: _Summary(
                     label: 'OUTFLOW',
                     value: '-\$3,429.50',
                     color: AppColors.secondary,
+                    caption: '-3.8% vs average',
+                    captionIcon: Icons.trending_down,
                     alignEnd: true,
                   ),
                 ),
@@ -132,19 +134,24 @@ class _Summary extends StatelessWidget {
     required this.label,
     required this.value,
     required this.color,
+    this.caption,
+    this.captionIcon,
     this.alignEnd = false,
   });
 
   final String label;
   final String value;
   final Color color;
+  final String? caption;
+  final IconData? captionIcon;
   final bool alignEnd;
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment:
-          alignEnd ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      crossAxisAlignment: alignEnd
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
       children: [
         Text(
           label,
@@ -162,6 +169,28 @@ class _Summary extends StatelessWidget {
             style: AppText.headlineMd.copyWith(color: color, fontSize: 19),
           ),
         ),
+        if (caption != null) ...[
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: alignEnd
+                ? MainAxisAlignment.end
+                : MainAxisAlignment.start,
+            children: [
+              if (captionIcon != null) ...[
+                Icon(captionIcon, size: 11, color: color),
+                const SizedBox(width: 3),
+              ],
+              Flexible(
+                child: Text(
+                  caption!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppText.labelSm.copyWith(fontSize: 8.5, color: color),
+                ),
+              ),
+            ],
+          ),
+        ],
       ],
     );
   }
@@ -187,7 +216,7 @@ class AnalyticsPage extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: MetricTile(
+                child: _AnalyticsMetric(
                   label: 'Net cash flow',
                   amount: '+\$3,420.50',
                   caption: 'October to date',
@@ -197,12 +226,14 @@ class AnalyticsPage extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: MetricTile(
+                child: _AnalyticsMetric(
                   label: 'Savings rate',
                   amount: '40.6%',
                   caption: 'Budget target 35%',
                   icon: Icons.savings_outlined,
                   accent: AppColors.tertiary,
+                  amountColor: AppColors.onSurface,
+                  badge: '+5.6%',
                 ),
               ),
             ],
@@ -228,6 +259,29 @@ class AnalyticsPage extends StatelessWidget {
                   months: MockData.chartMonths,
                   values: MockData.chartValues,
                 ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Text(
+                      'Avg. velocity: \$5.93k/mo',
+                      style: AppText.bodySm.copyWith(fontSize: 10),
+                    ),
+                    const Spacer(),
+                    const Icon(
+                      Icons.workspace_premium_outlined,
+                      size: 13,
+                      color: AppColors.primary,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Peak performance',
+                      style: AppText.labelSm.copyWith(
+                        fontSize: 9.5,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -244,6 +298,28 @@ class AnalyticsPage extends StatelessWidget {
                   trailingColor: AppColors.onSurfaceVariant,
                 ),
                 const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Text(
+                      'Total committed spend',
+                      style: AppText.bodySm.copyWith(fontSize: 10.5),
+                    ),
+                    const Spacer(),
+                    Text(
+                      formatCurrency(
+                        MockData.categories.fold<double>(
+                          0,
+                          (sum, category) => sum + category.amount,
+                        ),
+                      ),
+                      style: AppText.labelMd.copyWith(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
                 AllocationBar(
                   height: 12,
                   segments: [
@@ -253,39 +329,186 @@ class AnalyticsPage extends StatelessWidget {
                   remainingFlex: 294,
                 ),
                 const SizedBox(height: 12),
-                for (final category in MockData.categories) ...[
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 5),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 9,
-                          height: 9,
-                          decoration: BoxDecoration(
-                            color: category.color,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            category.label,
-                            style: AppText.bodyMd.copyWith(fontSize: 12.5),
-                          ),
-                        ),
-                        Text(
-                          formatCurrency(category.amount),
-                          style: AppText.labelMd.copyWith(fontSize: 10.5),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                _AllocationLegend(categories: MockData.categories),
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _AnalyticsMetric extends StatelessWidget {
+  const _AnalyticsMetric({
+    required this.label,
+    required this.amount,
+    required this.caption,
+    required this.icon,
+    required this.accent,
+    this.amountColor,
+    this.badge,
+  });
+
+  final String label;
+  final String amount;
+  final String caption;
+  final IconData icon;
+  final Color accent;
+  final Color? amountColor;
+  final String? badge;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.borderSoft),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppText.labelMd.copyWith(
+                    fontSize: 11,
+                    color: AppColors.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.14),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 16, color: accent),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              amount,
+              style: AppText.headlineMd.copyWith(
+                fontSize: 22,
+                color: amountColor ?? accent,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  caption,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppText.bodySm.copyWith(fontSize: 10.5),
+                ),
+              ),
+              if (badge != null) ...[
+                const SizedBox(width: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    badge!,
+                    style: AppText.labelSm.copyWith(
+                      fontSize: 8.5,
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AllocationLegend extends StatelessWidget {
+  const _AllocationLegend({required this.categories});
+
+  final List<CategorySlice> categories;
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: EdgeInsets.zero,
+      itemCount: categories.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisExtent: 48,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+      ),
+      itemBuilder: (context, index) {
+        final category = categories[index];
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceLow,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 9,
+                height: 9,
+                decoration: BoxDecoration(
+                  color: category.color,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      category.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppText.bodySm.copyWith(fontSize: 10.5),
+                    ),
+                    Text(
+                      formatCurrency(category.amount),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppText.labelMd.copyWith(fontSize: 10.5),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -320,25 +543,49 @@ class _SettingsPageState extends State<SettingsPage> {
             color: AppColors.surface,
             child: Row(
               children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: const LinearGradient(
-                      colors: [AppColors.tertiaryContainer, AppColors.primary],
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: const LinearGradient(
+                          colors: [
+                            AppColors.tertiaryContainer,
+                            AppColors.primary,
+                          ],
+                        ),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: Image.asset(
+                        'assets/images/profile.jpg',
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => const Icon(
+                          Icons.person_outline,
+                          color: AppColors.onPrimary,
+                        ),
+                      ),
                     ),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: Image.asset(
-                    'assets/images/profile.jpg',
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => const Icon(
-                      Icons.person_outline,
-                      color: AppColors.onPrimary,
+                    Positioned(
+                      right: -1,
+                      bottom: -1,
+                      child: Container(
+                        width: 13,
+                        height: 13,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: AppColors.surface,
+                            width: 2,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -364,7 +611,11 @@ class _SettingsPageState extends State<SettingsPage> {
                     vertical: 7,
                   ),
                   textStyle: AppText.labelSm.copyWith(fontSize: 9),
-                  onTap: () {},
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const EditProfilePage(),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -416,6 +667,11 @@ class _SettingsPageState extends State<SettingsPage> {
                 label: 'Privacy & security',
                 value: '',
                 last: true,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const UnlockVaultPage(),
+                  ),
+                ),
               ),
             ],
           ),
@@ -509,10 +765,7 @@ class _SettingsSwitch extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  Text(
-                    caption,
-                    style: AppText.bodySm.copyWith(fontSize: 10),
-                  ),
+                  Text(caption, style: AppText.bodySm.copyWith(fontSize: 10)),
                 ],
               ),
             ),
@@ -537,49 +790,57 @@ class _SettingsRow extends StatelessWidget {
     required this.label,
     required this.value,
     this.last = false,
+    this.onTap,
   });
 
   final IconData icon;
   final String label;
   final String value;
   final bool last;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        border: last
-            ? null
-            : const Border(bottom: BorderSide(color: AppColors.divider)),
-      ),
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: AppColors.onSurfaceVariant),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              label,
-              style: AppText.bodyMd.copyWith(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          decoration: BoxDecoration(
+            border: last
+                ? null
+                : const Border(bottom: BorderSide(color: AppColors.divider)),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          child: Row(
+            children: [
+              Icon(icon, size: 20, color: AppColors.onSurfaceVariant),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  label,
+                  style: AppText.bodyMd.copyWith(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
-            ),
+              Text(
+                value,
+                style: AppText.labelSm.copyWith(
+                  fontSize: 9,
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(width: 4),
+              const Icon(
+                Icons.chevron_right,
+                size: 17,
+                color: AppColors.onSurfaceVariant,
+              ),
+            ],
           ),
-          Text(
-            value,
-            style: AppText.labelSm.copyWith(
-              fontSize: 9,
-              color: AppColors.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(width: 4),
-          const Icon(
-            Icons.chevron_right,
-            size: 17,
-            color: AppColors.onSurfaceVariant,
-          ),
-        ],
+        ),
       ),
     );
   }
