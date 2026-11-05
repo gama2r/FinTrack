@@ -8,10 +8,8 @@ import 'test_fonts.dart';
 void main() {
   setUpAll(loadAppFonts);
 
-  Finder tab(String label) => find.descendant(
-    of: find.byType(FlowHeader),
-    matching: find.text(label),
-  );
+  Finder tab(String label) =>
+      find.descendant(of: find.byType(FlowHeader), matching: find.text(label));
 
   Future<void> pumpApp(
     WidgetTester tester, {
@@ -21,7 +19,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(const FinTrackApp());
+    await tester.pumpWidget(FinTrackApp(now: DateTime(2026, 11, 5)));
     await tester.pumpAndSettle();
   }
 

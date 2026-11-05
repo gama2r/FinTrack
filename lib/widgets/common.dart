@@ -190,11 +190,7 @@ class SectionHeader extends StatelessWidget {
                     ),
                   ),
                   if (trailingChevron)
-                    Icon(
-                      Icons.chevron_right,
-                      size: 16,
-                      color: trailingColor,
-                    ),
+                    Icon(Icons.chevron_right, size: 16, color: trailingColor),
                 ],
               ),
             ),
@@ -318,7 +314,8 @@ class PrimaryActionPill extends StatelessWidget {
               Icon(
                 icon,
                 size: 18,
-                color: iconColor ??
+                color:
+                    iconColor ??
                     (primary ? AppColors.onPrimary : AppColors.primary),
               ),
               const SizedBox(width: 8),
@@ -525,7 +522,10 @@ class _FilterChip extends StatelessWidget {
               if (option.count != null) ...[
                 const SizedBox(width: 6),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 1,
+                  ),
                   decoration: BoxDecoration(
                     color: selected
                         ? AppColors.onPrimary.withValues(alpha: 0.18)

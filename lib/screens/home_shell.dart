@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../data/mock_data.dart';
 import '../data/models.dart';
 import '../theme/app_theme.dart';
+import '../utils/dates.dart';
 import '../widgets/add_sheet.dart';
 import '../widgets/bottom_nav.dart';
 import '../widgets/flow_header.dart';
@@ -13,7 +13,10 @@ import 'notifications_page.dart';
 import 'secondary_pages.dart';
 
 class HomeShell extends StatefulWidget {
-  const HomeShell({super.key});
+  const HomeShell({super.key, this.now});
+
+  /// Fixed clock for tests; the app uses the current date by default.
+  final DateTime? now;
 
   @override
   State<HomeShell> createState() => _HomeShellState();
@@ -22,10 +25,11 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   int _dashboardIndex = 0;
   int _navIndex = 0;
-  String _month = 'October 2024';
-  final List<TransactionEntry> _transactions = [...MockData.transactions];
-  final List<BillItem> _bills = [...MockData.bills];
-  double _additionalIncome = 0;
+  late final DateTime _now = widget.now ?? DateTime.now();
+  late final List<String> _months = recentMonthLabels(_now);
+  late String _month = _months.first;
+  final List<TransactionEntry> _transactions = [];
+  final List<BillItem> _bills = [];
 
   void _selectDashboard(int index) {
     setState(() {
@@ -65,9 +69,7 @@ class _HomeShellState extends State<HomeShell> {
           status: 'Manual entry',
         ),
       );
-      if (isIncome) {
-        _additionalIncome += entry.amount;
-      } else {
+      if (!isIncome) {
         _bills.insert(
           0,
           BillItem(
@@ -75,7 +77,7 @@ class _HomeShellState extends State<HomeShell> {
             name: entry.title,
             subtitle: '${entry.category} • Manual entry',
             amount: entry.amount,
-            dueLabel: 'Due Oct 31',
+            dueLabel: 'No due date',
             icon: Icons.receipt_long_outlined,
             accent: AppColors.secondary,
             category: entry.category,
@@ -129,6 +131,7 @@ class _HomeShellState extends State<HomeShell> {
         children: [
           GeneralDashboard(
             transactions: _transactions,
+            bills: _bills,
             onAddBill: () => _openAddSheet(),
             onLogIncome: () => _openAddSheet(initialKind: EntryKind.income),
             onViewAllBills: () => _selectDashboard(1),
@@ -136,6 +139,7 @@ class _HomeShellState extends State<HomeShell> {
           ),
           BillsDashboard(
             bills: _bills,
+            month: _month,
             onPayBill: (bill) {
               final index = _bills.indexWhere((item) => item.id == bill.id);
               setState(() {
@@ -158,14 +162,15 @@ class _HomeShellState extends State<HomeShell> {
             },
           ),
           IncomeDashboard(
-            additionalIncome: _additionalIncome,
+            entries: _transactions.where((t) => t.isIncome).toList(),
+            month: _month,
             onLogIncome: () => _openAddSheet(
               initialKind: EntryKind.income,
               fixedKind: EntryKind.income,
             ),
-            onInvoiceClient: () =>
-                _notify('Client invoice drafted for Studio Apex.'),
-            onExportTax: () => _notify('Tax export prepared for October.'),
+            onInvoiceClient: () => _notify('Client invoicing is coming soon.'),
+            onExportTax: () =>
+                _notify('Tax export needs at least one logged entry.'),
           ),
         ],
       );
@@ -180,7 +185,7 @@ class _HomeShellState extends State<HomeShell> {
       index: secondaryIndex,
       children: [
         TransactionsPage(transactions: _transactions),
-        const AnalyticsPage(),
+        AnalyticsPage(transactions: _transactions, bills: _bills),
         const SettingsPage(),
       ],
     );
@@ -199,6 +204,7 @@ class _HomeShellState extends State<HomeShell> {
                 selectedDashboard: _dashboardIndex,
                 onDashboardChanged: _selectDashboard,
                 month: _month,
+                months: _months,
                 onMonthChanged: (value) => setState(() => _month = value),
                 onNotifications: _openNotifications,
                 onProfile: () => _selectNav(4),

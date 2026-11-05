@@ -23,7 +23,7 @@ flutter build apk --debug
 - Bottom-nav indices are non-contiguous: Dashboard `0`, Transactions `1`, Analytics `3`, Settings `4`. `HomeShell` maps `1→0`, `3→1`, else `2` when indexing `secondary_pages.dart`. Do not renumber these casually.
 - `FlowHeader` (General/Bills/Income switcher) renders only when `_navIndex == 0`; selecting a dashboard forces `_navIndex = 0`.
 - Theme tokens live in `lib/theme/app_theme.dart` (`AppColors`, `AppText`, `AppTheme`). Use them instead of hardcoded colors or text styles. Fonts are bundled in `assets/fonts` and declared in `pubspec.yaml`; do not add `google_fonts`.
-- Shared widgets: `lib/widgets/common.dart`, `cards.dart`, `charts.dart`. Mock data and models: `lib/data/`.
+- Shared widgets: `lib/widgets/common.dart`, `cards.dart`, `charts.dart`. Models: `lib/data/models.dart`. There is no mock dataset — the app starts empty and every dashboard computes from the in-memory `transactions`/`bills` lists.
 
 ## Add flow
 - The floating add button is always present. On General it accepts bill or income; on Bills it is locked to bill; on Income it is locked to income. Secondary tabs keep the universal sheet.
@@ -46,5 +46,5 @@ flutter build apk --debug
 - `test/failures/` holds generated diff artifacts from failed golden runs. Safe to delete; never treat as source.
 
 ## Gotchas
-- `README.md` links to `DESIGN.md`, which does not exist. `lib/theme/app_theme.dart` is the design source of truth.
+- `lib/theme/app_theme.dart` is the design source of truth; `README.md` documents the app and its Stitch origin.
 - UI originates from Stitch project `16122598622821369244` ("Flutter Finance Tracker", Luminescent Wealth). When syncing a design change, update widgets and goldens together.

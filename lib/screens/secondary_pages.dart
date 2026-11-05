@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../data/mock_data.dart';
 import '../data/models.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatters.dart';
 import '../widgets/cards.dart';
-import '../widgets/charts.dart';
 import '../widgets/common.dart';
 import 'edit_profile_page.dart';
 import 'vault_pages.dart';
@@ -21,6 +19,18 @@ class TransactionsPage extends StatefulWidget {
 
 class _TransactionsPageState extends State<TransactionsPage> {
   int _filter = 0;
+
+  double get _inflow => widget.transactions
+      .where((t) => t.isIncome)
+      .fold(0.0, (sum, t) => sum + t.amount);
+
+  double get _outflow => widget.transactions
+      .where((t) => !t.isIncome)
+      .fold(0.0, (sum, t) => sum + t.amount.abs());
+
+  int get _inflowCount => widget.transactions.where((t) => t.isIncome).length;
+
+  int get _outflowCount => widget.transactions.where((t) => !t.isIncome).length;
 
   List<TransactionEntry> get _filtered {
     switch (_filter) {
@@ -55,20 +65,24 @@ class _TransactionsPageState extends State<TransactionsPage> {
                 Expanded(
                   child: _Summary(
                     label: 'INFLOW',
-                    value: '+\$6,850.00',
+                    value: formatCurrency(_inflow, signed: true),
                     color: AppColors.primary,
-                    caption: '+14.2% this month',
-                    captionIcon: Icons.trending_up,
+                    caption: _inflowCount == 1
+                        ? '1 entry'
+                        : '$_inflowCount entries',
+                    captionIcon: Icons.north_east,
                   ),
                 ),
                 Container(width: 1, height: 40, color: AppColors.divider),
                 Expanded(
                   child: _Summary(
                     label: 'OUTFLOW',
-                    value: '-\$3,429.50',
+                    value: '-${formatCurrency(_outflow)}',
                     color: AppColors.secondary,
-                    caption: '-3.8% vs average',
-                    captionIcon: Icons.trending_down,
+                    caption: _outflowCount == 1
+                        ? '1 entry'
+                        : '$_outflowCount entries',
+                    captionIcon: Icons.south_east,
                     alignEnd: true,
                   ),
                 ),
@@ -86,29 +100,60 @@ class _TransactionsPageState extends State<TransactionsPage> {
             onSelected: (index) => setState(() => _filter = index),
           ),
           const SizedBox(height: 10),
-          AppCard(
-            color: AppColors.surfaceLow,
-            padding: const EdgeInsets.all(8),
-            child: Column(
-              children: [
-                for (var i = 0; i < _filtered.length; i++) ...[
-                  TransactionTile(entry: _filtered[i]),
-                  if (i != _filtered.length - 1)
-                    const Padding(
-                      padding: EdgeInsets.only(left: 52, right: 12),
-                      child: DashedDivider(),
-                    ),
+          if (_filtered.isEmpty)
+            AppCard(
+              color: AppColors.surfaceLow,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 22),
+              child: Column(
+                children: [
+                  const IconBadge(
+                    icon: Icons.receipt_long_outlined,
+                    color: AppColors.onSurfaceVariant,
+                    background: AppColors.surfaceHigh,
+                    size: 44,
+                    circle: true,
+                    iconSize: 22,
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'No transactions yet',
+                    style: AppText.headlineSm.copyWith(fontSize: 15),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    widget.transactions.isEmpty
+                        ? 'Add a bill or log income to start your ledger.'
+                        : 'Nothing matches this filter.',
+                    textAlign: TextAlign.center,
+                    style: AppText.bodySm.copyWith(fontSize: 11),
+                  ),
                 ],
-              ],
+              ),
+            )
+          else
+            AppCard(
+              color: AppColors.surfaceLow,
+              padding: const EdgeInsets.all(8),
+              child: Column(
+                children: [
+                  for (var i = 0; i < _filtered.length; i++) ...[
+                    TransactionTile(entry: _filtered[i]),
+                    if (i != _filtered.length - 1)
+                      const Padding(
+                        padding: EdgeInsets.only(left: 52, right: 12),
+                        child: DashedDivider(),
+                      ),
+                  ],
+                ],
+              ),
             ),
-          ),
           const SizedBox(height: 16),
           AppCard(
             color: AppColors.surface,
             child: Row(
               children: [
                 const IconBadge(
-                  icon: Icons.info_outline,
+                  icon: Icons.lock_outline,
                   color: AppColors.tertiary,
                   circle: true,
                   size: 40,
@@ -116,7 +161,8 @@ class _TransactionsPageState extends State<TransactionsPage> {
                 const SizedBox(width: 11),
                 Expanded(
                   child: Text(
-                    'Transactions sync automatically with your linked accounts.',
+                    'Entries are stored locally on this device. Nothing is '
+                    'uploaded.',
                     style: AppText.bodySm.copyWith(fontSize: 11),
                   ),
                 ),
@@ -197,10 +243,63 @@ class _Summary extends StatelessWidget {
 }
 
 class AnalyticsPage extends StatelessWidget {
-  const AnalyticsPage({super.key});
+  const AnalyticsPage({
+    super.key,
+    required this.transactions,
+    required this.bills,
+  });
+
+  final List<TransactionEntry> transactions;
+  final List<BillItem> bills;
+
+  double get _income => transactions
+      .where((t) => t.isIncome)
+      .fold(0.0, (sum, t) => sum + t.amount);
+
+  double get _outflow => transactions
+      .where((t) => !t.isIncome)
+      .fold(0.0, (sum, t) => sum + t.amount.abs());
+
+  double get _net => _income - _outflow;
+
+  double get _savingsRate => _income <= 0 ? 0 : _net / _income * 100;
+
+  List<CategorySlice> get _categories {
+    const palette = [
+      AppColors.primary,
+      AppColors.tertiaryContainer,
+      AppColors.tertiary,
+      AppColors.secondary,
+      AppColors.primaryFixed,
+    ];
+    final totals = <String, double>{};
+    for (final bill in bills) {
+      totals.update(
+        bill.category,
+        (value) => value + bill.amount,
+        ifAbsent: () => bill.amount,
+      );
+    }
+    final entries = totals.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final max = entries.isEmpty ? 0.0 : entries.first.value;
+    return [
+      for (var i = 0; i < entries.length; i++)
+        CategorySlice(
+          label: entries[i].key,
+          subtitle:
+              '${bills.where((b) => b.category == entries[i].key).length} bills',
+          amount: entries[i].value,
+          color: palette[i % palette.length],
+          flex: max <= 0 ? 1 : (entries[i].value / max * 100).round(),
+        ),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
+    final categories = _categories;
+    final hasData = transactions.isNotEmpty || bills.isNotEmpty;
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
       child: Column(
@@ -218,22 +317,26 @@ class AnalyticsPage extends StatelessWidget {
               Expanded(
                 child: _AnalyticsMetric(
                   label: 'Net cash flow',
-                  amount: '+\$3,420.50',
-                  caption: 'October to date',
+                  amount: formatCurrency(_net, signed: true),
+                  caption: 'All logged entries',
                   icon: Icons.north_east,
                   accent: AppColors.primary,
+                  amountColor: _net < 0
+                      ? AppColors.secondary
+                      : AppColors.primary,
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: _AnalyticsMetric(
                   label: 'Savings rate',
-                  amount: '40.6%',
-                  caption: 'Budget target 35%',
+                  amount: '${_savingsRate.toStringAsFixed(1)}%',
+                  caption: _income <= 0
+                      ? 'Log income to calculate'
+                      : 'Of total income',
                   icon: Icons.savings_outlined,
                   accent: AppColors.tertiary,
                   amountColor: AppColors.onSurface,
-                  badge: '+5.6%',
                 ),
               ),
             ],
@@ -247,40 +350,47 @@ class AnalyticsPage extends StatelessWidget {
               children: [
                 SectionHeader(
                   title: 'Income Trajectory',
-                  trailing: '+14.2% MoM',
+                  trailing: hasData ? 'This period' : null,
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Monthly earnings, May through October.',
+                  'Monthly earnings history.',
                   style: AppText.bodySm.copyWith(fontSize: 10.5),
                 ),
-                const SizedBox(height: 10),
-                IncomeBarChart(
-                  months: MockData.chartMonths,
-                  values: MockData.chartValues,
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Text(
-                      'Avg. velocity: \$5.93k/mo',
-                      style: AppText.bodySm.copyWith(fontSize: 10),
-                    ),
-                    const Spacer(),
-                    const Icon(
-                      Icons.workspace_premium_outlined,
-                      size: 13,
-                      color: AppColors.primary,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Peak performance',
-                      style: AppText.labelSm.copyWith(
-                        fontSize: 9.5,
-                        color: AppColors.primary,
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 18,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceLowest,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    children: [
+                      const Icon(
+                        Icons.show_chart,
+                        size: 26,
+                        color: AppColors.onSurfaceVariant,
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      Text(
+                        hasData ? 'Not enough history yet' : 'No data yet',
+                        style: AppText.bodyMd.copyWith(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'A monthly trend appears once you have entries across '
+                        'multiple months.',
+                        textAlign: TextAlign.center,
+                        style: AppText.bodySm.copyWith(fontSize: 10.5),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -294,42 +404,55 @@ class AnalyticsPage extends StatelessWidget {
               children: [
                 SectionHeader(
                   title: 'Category Allocation',
-                  trailing: 'October',
+                  trailing: categories.isEmpty
+                      ? null
+                      : '${categories.length} categories',
                   trailingColor: AppColors.onSurfaceVariant,
                 ),
                 const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Text(
-                      'Total committed spend',
-                      style: AppText.bodySm.copyWith(fontSize: 10.5),
+                if (categories.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: Text(
+                      'Category totals appear after you add bills.',
+                      textAlign: TextAlign.center,
+                      style: AppText.bodySm.copyWith(fontSize: 11),
                     ),
-                    const Spacer(),
-                    Text(
-                      formatCurrency(
-                        MockData.categories.fold<double>(
-                          0,
-                          (sum, category) => sum + category.amount,
+                  )
+                else ...[
+                  Row(
+                    children: [
+                      Text(
+                        'Total committed spend',
+                        style: AppText.bodySm.copyWith(fontSize: 10.5),
+                      ),
+                      const Spacer(),
+                      Text(
+                        formatCurrency(
+                          categories.fold<double>(
+                            0,
+                            (sum, category) => sum + category.amount,
+                          ),
+                        ),
+                        style: AppText.labelMd.copyWith(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
-                      style: AppText.labelMd.copyWith(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                AllocationBar(
-                  height: 12,
-                  segments: [
-                    for (final category in MockData.categories)
-                      SegmentSpec(category.flex, category.color),
-                  ],
-                  remainingFlex: 294,
-                ),
-                const SizedBox(height: 12),
-                _AllocationLegend(categories: MockData.categories),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  AllocationBar(
+                    height: 12,
+                    segments: [
+                      for (final category in categories)
+                        SegmentSpec(category.flex, category.color),
+                    ],
+                    remainingFlex: 0,
+                  ),
+                  const SizedBox(height: 12),
+                  _AllocationLegend(categories: categories),
+                ],
               ],
             ),
           ),
@@ -347,7 +470,6 @@ class _AnalyticsMetric extends StatelessWidget {
     required this.icon,
     required this.accent,
     this.amountColor,
-    this.badge,
   });
 
   final String label;
@@ -356,7 +478,6 @@ class _AnalyticsMetric extends StatelessWidget {
   final IconData icon;
   final Color accent;
   final Color? amountColor;
-  final String? badge;
 
   @override
   Widget build(BuildContext context) {
@@ -419,27 +540,6 @@ class _AnalyticsMetric extends StatelessWidget {
                   style: AppText.bodySm.copyWith(fontSize: 10.5),
                 ),
               ),
-              if (badge != null) ...[
-                const SizedBox(width: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    badge!,
-                    style: AppText.labelSm.copyWith(
-                      fontSize: 8.5,
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
             ],
           ),
         ],
@@ -560,29 +660,10 @@ class _SettingsPageState extends State<SettingsPage> {
                         border: Border.all(color: AppColors.border),
                       ),
                       clipBehavior: Clip.antiAlias,
-                      child: Image.asset(
-                        'assets/images/profile.jpg',
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => const Icon(
-                          Icons.person_outline,
-                          color: AppColors.onPrimary,
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      right: -1,
-                      bottom: -1,
-                      child: Container(
-                        width: 13,
-                        height: 13,
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: AppColors.surface,
-                            width: 2,
-                          ),
-                        ),
+                      child: const Icon(
+                        Icons.person_outline,
+                        color: AppColors.onPrimary,
+                        size: 24,
                       ),
                     ),
                   ],
@@ -593,11 +674,11 @@ class _SettingsPageState extends State<SettingsPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Alex Morgan',
+                        'Your profile',
                         style: AppText.headlineSm.copyWith(fontSize: 16),
                       ),
                       Text(
-                        'alex.morgan@finmail.com',
+                        'Tap Edit to add your details',
                         style: AppText.bodySm.copyWith(fontSize: 10.5),
                       ),
                     ],

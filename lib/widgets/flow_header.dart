@@ -8,6 +8,7 @@ class FlowHeader extends StatelessWidget {
     required this.selectedDashboard,
     required this.onDashboardChanged,
     required this.month,
+    required this.months,
     required this.onMonthChanged,
     this.onNotifications,
     this.onProfile,
@@ -16,11 +17,11 @@ class FlowHeader extends StatelessWidget {
   final int selectedDashboard;
   final ValueChanged<int> onDashboardChanged;
   final String month;
+  final List<String> months;
   final ValueChanged<String> onMonthChanged;
   final VoidCallback? onNotifications;
   final VoidCallback? onProfile;
 
-  static const _months = ['October 2024', 'November 2024', 'December 2024'];
   static const _tabs = ['General', 'Bills', 'Income'];
 
   @override
@@ -48,7 +49,7 @@ class FlowHeader extends StatelessWidget {
                     initialValue: month,
                     onSelected: onMonthChanged,
                     itemBuilder: (context) => [
-                      for (final item in _months)
+                      for (final item in months)
                         PopupMenuItem(
                           value: item,
                           child: Row(
@@ -84,7 +85,10 @@ class FlowHeader extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(month, style: AppText.labelMd.copyWith(fontSize: 11)),
+                          Text(
+                            month,
+                            style: AppText.labelMd.copyWith(fontSize: 11),
+                          ),
                           const SizedBox(width: 5),
                           const Icon(
                             Icons.expand_more,
@@ -113,23 +117,19 @@ class FlowHeader extends StatelessWidget {
                         shape: BoxShape.circle,
                         border: Border.all(color: AppColors.border),
                         gradient: const LinearGradient(
-                          colors: [AppColors.tertiaryContainer, AppColors.primary],
+                          colors: [
+                            AppColors.tertiaryContainer,
+                            AppColors.primary,
+                          ],
                         ),
                       ),
                       clipBehavior: Clip.antiAlias,
-                      child: Image.asset(
-                        'assets/images/profile.jpg',
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => const Center(
-                          child: Text(
-                            'AM',
-                            style: TextStyle(
-                              fontFamily: AppText.manrope,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.onPrimary,
-                            ),
-                          ),
+                      child: const ColoredBox(
+                        color: AppColors.surfaceHigh,
+                        child: Icon(
+                          Icons.person_outline,
+                          size: 19,
+                          color: AppColors.onSurfaceVariant,
                         ),
                       ),
                     ),

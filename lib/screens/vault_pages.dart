@@ -20,7 +20,7 @@ class _CreateVaultPageState extends State<CreateVaultPage> {
   ];
 
   final _vaultName = TextEditingController(text: 'Personal Finances');
-  final _ownerName = TextEditingController(text: 'Alex Morgan');
+  final _ownerName = TextEditingController();
   int _currency = 0;
   bool _pinAndBiometrics = true;
 
@@ -541,13 +541,10 @@ class _UnlockVaultPageState extends State<UnlockVaultPage> {
                         shape: BoxShape.circle,
                       ),
                       alignment: Alignment.center,
-                      child: Text(
-                        'AM',
-                        style: AppText.labelMd.copyWith(
-                          fontSize: 11,
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w700,
-                        ),
+                      child: const Icon(
+                        Icons.person_outline,
+                        size: 20,
+                        color: AppColors.primary,
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -558,7 +555,7 @@ class _UnlockVaultPageState extends State<UnlockVaultPage> {
                           Row(
                             children: [
                               Text(
-                                'Alex Morgan',
+                                'Vault owner',
                                 style: AppText.bodyMd.copyWith(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
@@ -856,11 +853,13 @@ class _InputBox extends StatelessWidget {
     required this.controller,
     required this.icon,
     this.trailing,
+    this.hint,
   });
 
   final TextEditingController controller;
   final IconData icon;
   final Widget? trailing;
+  final String? hint;
 
   @override
   Widget build(BuildContext context) {
@@ -883,10 +882,15 @@ class _InputBox extends StatelessWidget {
                 color: AppColors.onSurface,
               ),
               cursorColor: AppColors.primary,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 border: InputBorder.none,
                 isDense: true,
-                contentPadding: EdgeInsets.symmetric(vertical: 15),
+                hintText: hint,
+                hintStyle: AppText.bodyMd.copyWith(
+                  fontSize: 13.5,
+                  color: AppColors.muted,
+                ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 15),
               ),
             ),
           ),
@@ -1685,11 +1689,18 @@ class CreateVaultStep3Page extends StatefulWidget {
 }
 
 class _CreateVaultStep3PageState extends State<CreateVaultStep3Page> {
-  int _amount = 1;
+  final _startingBalance = TextEditingController();
+  final _netIncome = TextEditingController();
   int _frequency = 1;
 
-  static const _amounts = ['\$3,500', '\$5,000', '\$7,500', 'Custom'];
   static const _frequencies = ['Bi-weekly', 'Monthly', 'Twice Monthly'];
+
+  @override
+  void dispose() {
+    _startingBalance.dispose();
+    _netIncome.dispose();
+    super.dispose();
+  }
 
   void _complete(String message) {
     final messenger = ScaffoldMessenger.of(context);
@@ -1743,8 +1754,8 @@ class _CreateVaultStep3PageState extends State<CreateVaultStep3Page> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Seed your local ledger with starting figures so your '
-                'dashboards and cashflow projections are ready immediately.',
+                'Optionally set a starting balance so your dashboards and '
+                'cashflow projections have a baseline.',
                 textAlign: TextAlign.center,
                 style: AppText.bodyMd.copyWith(
                   fontSize: 13,
@@ -1839,29 +1850,10 @@ class _CreateVaultStep3PageState extends State<CreateVaultStep3Page> {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 14,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceLowest,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.attach_money,
-                            size: 24,
-                            color: AppColors.primary,
-                          ),
-                          const Spacer(),
-                          Text(
-                            '5,000.00',
-                            style: AppText.headlineMd.copyWith(fontSize: 26),
-                          ),
-                        ],
-                      ),
+                    _InputBox(
+                      controller: _startingBalance,
+                      icon: Icons.attach_money,
+                      hint: '0.00',
                     ),
                     const SizedBox(height: 7),
                     Center(
@@ -1911,20 +1903,10 @@ class _CreateVaultStep3PageState extends State<CreateVaultStep3Page> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        for (var i = 0; i < _amounts.length; i++) ...[
-                          if (i > 0) const SizedBox(width: 6),
-                          Expanded(
-                            child: _ChoicePill(
-                              label: _amounts[i],
-                              selected: _amount == i,
-                              primary: true,
-                              onTap: () => setState(() => _amount = i),
-                            ),
-                          ),
-                        ],
-                      ],
+                    _InputBox(
+                      controller: _netIncome,
+                      icon: Icons.trending_up,
+                      hint: '0.00',
                     ),
                     const SizedBox(height: 12),
                     Text(
@@ -1998,56 +1980,15 @@ class _CreateVaultStep3PageState extends State<CreateVaultStep3Page> {
                     ),
                     const SizedBox(height: 12),
                     Container(
-                      padding: const EdgeInsets.all(10),
+                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: AppColors.surfaceLow,
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Row(
-                        children: [
-                          const IconBadge(
-                            icon: Icons.home_outlined,
-                            color: AppColors.onSurfaceVariant,
-                            background: AppColors.surfaceHigh,
-                            size: 38,
-                            radius: 10,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Rent / Mortgage',
-                                  style: AppText.bodyMd.copyWith(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                Text(
-                                  'Due 1st of month',
-                                  style: AppText.bodySm.copyWith(fontSize: 10),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                '\$1,650.00',
-                                style: AppText.labelMd.copyWith(fontSize: 11),
-                              ),
-                              Text(
-                                'Fixed monthly',
-                                style: AppText.labelSm.copyWith(
-                                  fontSize: 8,
-                                  color: AppColors.primary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                      child: Text(
+                        'No fixed bills added yet. You can log bills from the '
+                        'dashboard once setup is complete.',
+                        style: AppText.bodySm.copyWith(fontSize: 10.5),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -2066,7 +2007,7 @@ class _CreateVaultStep3PageState extends State<CreateVaultStep3Page> {
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              'Add Another Fixed Bill',
+                              'Add Fixed Bill',
                               style: AppText.labelSm.copyWith(
                                 fontSize: 9,
                                 color: AppColors.onSurfaceVariant,
@@ -2113,8 +2054,7 @@ class _CreateVaultStep3PageState extends State<CreateVaultStep3Page> {
               SizedBox(
                 height: 52,
                 child: FilledButton(
-                  onPressed: () =>
-                      _complete('Vault ready. Welcome back, Alex.'),
+                  onPressed: () => _complete('Vault ready. Welcome.'),
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: AppColors.onPrimary,
@@ -2248,21 +2188,17 @@ class _ChoicePill extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
-    this.primary = false,
   });
 
   final String label;
   final bool selected;
   final VoidCallback onTap;
-  final bool primary;
 
   @override
   Widget build(BuildContext context) {
-    final background = selected
-        ? (primary ? AppColors.primary : AppColors.surfaceHigh)
-        : AppColors.surfaceLow;
+    final background = selected ? AppColors.surfaceHigh : AppColors.surfaceLow;
     final foreground = selected
-        ? (primary ? AppColors.onPrimary : AppColors.onSurface)
+        ? AppColors.onSurface
         : AppColors.onSurfaceVariant;
     return InkWell(
       onTap: onTap,
@@ -2272,7 +2208,7 @@ class _ChoicePill extends StatelessWidget {
         decoration: BoxDecoration(
           color: background,
           borderRadius: BorderRadius.circular(10),
-          border: selected && !primary
+          border: selected
               ? Border.all(color: AppColors.muted)
               : Border.all(color: AppColors.borderSoft),
         ),

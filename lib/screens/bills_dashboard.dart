@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../data/mock_data.dart';
 import '../data/models.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatters.dart';
@@ -12,11 +11,13 @@ class BillsDashboard extends StatefulWidget {
   const BillsDashboard({
     super.key,
     required this.bills,
+    required this.month,
     this.onPayBill,
     this.onToggleAutoPay,
   });
 
   final List<BillItem> bills;
+  final String month;
   final ValueChanged<BillItem>? onPayBill;
   final ValueChanged<BillItem>? onToggleAutoPay;
 
@@ -26,48 +27,43 @@ class BillsDashboard extends StatefulWidget {
 
 class _BillsDashboardState extends State<BillsDashboard> {
   int _filter = 0;
-  bool _paying = false;
+  String? _payingId;
 
-  BillItem get _rent =>
-      widget.bills.firstWhere((bill) => bill.id == 'luxury-rent');
+  List<BillItem> get _openBills =>
+      widget.bills.where((bill) => !bill.paid).toList();
 
-  BillItem _byId(String id) =>
-      widget.bills.firstWhere((bill) => bill.id == id);
+  List<BillItem> get _paidBills =>
+      widget.bills.where((bill) => bill.paid).toList();
 
-  double get _paidTotal => 1682 + (_rent.paid ? 1650 : 0);
-  double get _pendingTotal => 1747.50 - (_rent.paid ? 1650 : 0);
-  double get _progress => _paidTotal / 3429.50;
-  int get _settled => _rent.paid ? 6 : 5;
+  double get _total => widget.bills.fold(0.0, (sum, bill) => sum + bill.amount);
+
+  double get _paidTotal =>
+      _paidBills.fold(0.0, (sum, bill) => sum + bill.amount);
+
+  double get _pendingTotal =>
+      _openBills.fold(0.0, (sum, bill) => sum + bill.amount);
+
+  double get _progress => _total <= 0 ? 0 : _paidTotal / _total;
+
+  int get _settled => _paidBills.length;
 
   List<BillItem> get _dueBills {
-    final base = [
-      _rent,
-      _byId('clean-energy'),
-      _byId('cloud'),
-      ...widget.bills.where(
-        (bill) => bill.id.startsWith('manual-') && !bill.paid,
-      ),
-    ];
-    switch (_filter) {
-      case 1:
-        return base.where((b) => b.id != 'cloud').toList();
-      case 2:
-        return base.where((b) => b.category == 'Subscriptions').toList();
-      case 3:
-        return base.where((b) => b.category == 'Utilities').toList();
-      default:
-        return base;
-    }
+    final base = _openBills;
+    return switch (_filter) {
+      1 => base.where((bill) => bill.category != 'Subscriptions').toList(),
+      2 => base.where((bill) => bill.category == 'Subscriptions').toList(),
+      3 => base.where((bill) => bill.category == 'Utilities').toList(),
+      _ => base,
+    };
   }
 
-  Future<void> _payRent() async {
-    if (_paying || _rent.paid) return;
-    setState(() => _paying = true);
-    await Future<void>.delayed(const Duration(milliseconds: 1200));
+  Future<void> _payBill(BillItem bill) async {
+    if (_payingId != null || bill.paid) return;
+    setState(() => _payingId = bill.id);
+    await Future<void>.delayed(const Duration(milliseconds: 700));
     if (!mounted) return;
-    final paid = _rent.copyWith(paid: true);
-    setState(() => _paying = false);
-    widget.onPayBill?.call(paid);
+    setState(() => _payingId = null);
+    widget.onPayBill?.call(bill.copyWith(paid: true));
   }
 
   void _toggleAutoPay(BillItem bill) {
@@ -84,27 +80,54 @@ class _BillsDashboardState extends State<BillsDashboard> {
           _statusRow(),
           const SizedBox(height: 10),
           _heroCard(),
-          const SizedBox(height: 10),
-          _reminderBanner(),
-          const SizedBox(height: 12),
-          FilterChipRow(
-            options: const [
-              FilterOption('All', count: 9),
-              FilterOption('Due This Week', count: 2, accent: AppColors.secondary),
-              FilterOption('Subscriptions', count: 4),
-              FilterOption('Utilities', count: 3),
+          if (widget.bills.isEmpty) ...[
+            const SizedBox(height: 14),
+            _emptyState(),
+          ] else ...[
+            if (_openBills.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              _reminderBanner(_openBills.first),
             ],
-            selectedIndex: _filter,
-            onSelected: (index) => setState(() => _filter = index),
-          ),
-          const SizedBox(height: 14),
-          _allocationCard(),
-          const SizedBox(height: 18),
-          _dueSoonSection(),
-          const SizedBox(height: 18),
-          _recentlyPaidSection(),
-          const SizedBox(height: 14),
-          _subscriptionAudit(),
+            const SizedBox(height: 12),
+            FilterChipRow(
+              options: [
+                FilterOption('All', count: _openBills.length),
+                FilterOption(
+                  'Due This Week',
+                  count: _openBills
+                      .where((bill) => bill.category != 'Subscriptions')
+                      .length,
+                  accent: AppColors.secondary,
+                ),
+                FilterOption(
+                  'Subscriptions',
+                  count: _openBills
+                      .where((bill) => bill.category == 'Subscriptions')
+                      .length,
+                ),
+                FilterOption(
+                  'Utilities',
+                  count: _openBills
+                      .where((bill) => bill.category == 'Utilities')
+                      .length,
+                ),
+              ],
+              selectedIndex: _filter,
+              onSelected: (index) => setState(() => _filter = index),
+            ),
+            const SizedBox(height: 14),
+            _allocationCard(),
+            const SizedBox(height: 18),
+            if (_dueBills.isNotEmpty) ...[
+              _dueSoonSection(),
+              const SizedBox(height: 18),
+            ],
+            if (_paidBills.isNotEmpty) ...[
+              _recentlyPaidSection(),
+              const SizedBox(height: 14),
+            ],
+            _subscriptionAudit(),
+          ],
         ],
       ),
     );
@@ -140,14 +163,41 @@ class _BillsDashboardState extends State<BillsDashboard> {
                 color: AppColors.primary,
               ),
               const SizedBox(width: 5),
-              Text(
-                'Cycle: Oct 01 - 31',
-                style: AppText.labelSm.copyWith(fontSize: 9),
-              ),
+              Text('This cycle', style: AppText.labelSm.copyWith(fontSize: 9)),
             ],
           ),
         ),
       ],
+    );
+  }
+
+  Widget _emptyState() {
+    return AppCard(
+      color: AppColors.surface,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 22),
+      child: Column(
+        children: [
+          const IconBadge(
+            icon: Icons.receipt_long_outlined,
+            color: AppColors.onSurfaceVariant,
+            background: AppColors.surfaceHigh,
+            size: 46,
+            circle: true,
+            iconSize: 23,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'No bills yet',
+            style: AppText.headlineSm.copyWith(fontSize: 16),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            'Use the + button to log your first bill. It will show up here.',
+            textAlign: TextAlign.center,
+            style: AppText.bodySm.copyWith(fontSize: 11),
+          ),
+        ],
+      ),
     );
   }
 
@@ -167,7 +217,7 @@ class _BillsDashboardState extends State<BillsDashboard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Total Bills for October',
+                      'Total Bills for ${widget.month.split(' ').first}',
                       style: AppText.bodySm.copyWith(fontSize: 11),
                     ),
                     const SizedBox(height: 1),
@@ -187,7 +237,7 @@ class _BillsDashboardState extends State<BillsDashboard> {
                           ),
                           const SizedBox(width: 2),
                           Text(
-                            '3,429.50',
+                            formatCurrency(_total).substring(1),
                             style: AppText.displayLgMobile.copyWith(
                               fontSize: 33,
                               letterSpacing: -1,
@@ -203,6 +253,7 @@ class _BillsDashboardState extends State<BillsDashboard> {
               CircularProgressRing(
                 value: _progress,
                 label: '${(_progress * 100).round()}%',
+                caption: _total <= 0 ? 'BILLS' : 'PAID',
               ),
             ],
           ),
@@ -221,7 +272,9 @@ class _BillsDashboardState extends State<BillsDashboard> {
               FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
-                  '$_settled of 9 settled',
+                  _total <= 0
+                      ? 'Nothing scheduled'
+                      : '$_settled of ${widget.bills.length} settled',
                   style: AppText.labelSm.copyWith(
                     fontSize: 9,
                     color: AppColors.onSurface,
@@ -249,7 +302,7 @@ class _BillsDashboardState extends State<BillsDashboard> {
                 child: BillStatTile(
                   label: 'Pending',
                   amount: formatCurrency(_pendingTotal),
-                  caption: '${9 - _settled} bills awaiting',
+                  caption: '${_openBills.length} bills awaiting',
                   icon: Icons.pending_actions,
                   accent: AppColors.secondary,
                   captionColor: AppColors.secondary,
@@ -262,7 +315,7 @@ class _BillsDashboardState extends State<BillsDashboard> {
     );
   }
 
-  Widget _reminderBanner() {
+  Widget _reminderBanner(BillItem bill) {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
@@ -298,9 +351,7 @@ class _BillsDashboardState extends State<BillsDashboard> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _rent.paid
-                      ? 'Luxury Apartment settled'
-                      : 'Next Bill: Luxury Apartment',
+                  'Next Bill: ${bill.name}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppText.labelMd.copyWith(
@@ -310,9 +361,7 @@ class _BillsDashboardState extends State<BillsDashboard> {
                   ),
                 ),
                 Text(
-                  _rent.paid
-                      ? 'Paid today • \$1,650.00 cleared'
-                      : 'Due in 3 days • \$1,650.00',
+                  '${bill.dueLabel} • ${formatCurrency(bill.amount)}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppText.bodySm.copyWith(
@@ -327,14 +376,12 @@ class _BillsDashboardState extends State<BillsDashboard> {
           ),
           const SizedBox(width: 8),
           AppPill(
-            label: 'View',
+            label: 'Pay',
             background: AppColors.surfaceLowest,
             foreground: AppColors.secondary,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             textStyle: AppText.labelSm.copyWith(fontSize: 9),
-            onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('${_rent.name} details opened.')),
-            ),
+            onTap: () => _payBill(bill),
           ),
         ],
       ),
@@ -342,6 +389,8 @@ class _BillsDashboardState extends State<BillsDashboard> {
   }
 
   Widget _allocationCard() {
+    final slices = _categorySlices();
+    final totalFlex = slices.fold<int>(0, (sum, slice) => sum + slice.flex);
     return AppCard(
       color: AppColors.surface,
       padding: const EdgeInsets.all(14),
@@ -368,7 +417,7 @@ class _BillsDashboardState extends State<BillsDashboard> {
               FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
-                  '4 categories',
+                  '${slices.length} categories',
                   style: AppText.labelSm.copyWith(
                     fontSize: 9,
                     color: AppColors.onSurfaceVariant,
@@ -381,30 +430,66 @@ class _BillsDashboardState extends State<BillsDashboard> {
           AllocationBar(
             height: 12,
             segments: [
-              for (final category in MockData.categories)
-                SegmentSpec(category.flex, category.color),
+              for (final slice in slices) SegmentSpec(slice.flex, slice.color),
             ],
-            remainingFlex: 294,
+            remainingFlex: 0,
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(child: CategoryTile(category: MockData.categories[0])),
-              const SizedBox(width: 8),
-              Expanded(child: CategoryTile(category: MockData.categories[1])),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(child: CategoryTile(category: MockData.categories[2])),
-              const SizedBox(width: 8),
-              Expanded(child: CategoryTile(category: MockData.categories[3])),
-            ],
-          ),
+          for (var row = 0; row < slices.length; row += 2) ...[
+            if (row > 0) const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(child: CategoryTile(category: slices[row])),
+                const SizedBox(width: 8),
+                if (row + 1 < slices.length)
+                  Expanded(child: CategoryTile(category: slices[row + 1]))
+                else
+                  const Expanded(child: SizedBox()),
+              ],
+            ),
+          ],
+          if (slices.isEmpty)
+            Text(
+              'Category totals appear as you add bills.',
+              style: AppText.bodySm.copyWith(fontSize: 10.5),
+            ),
+          const SizedBox(height: 2),
+          if (totalFlex == 0) const SizedBox.shrink(),
         ],
       ),
     );
+  }
+
+  List<CategorySlice> _categorySlices() {
+    const palette = [
+      AppColors.primary,
+      AppColors.tertiaryContainer,
+      AppColors.tertiary,
+      AppColors.secondary,
+      AppColors.primaryFixed,
+    ];
+    final totals = <String, double>{};
+    for (final bill in widget.bills) {
+      totals.update(
+        bill.category,
+        (value) => value + bill.amount,
+        ifAbsent: () => bill.amount,
+      );
+    }
+    final entries = totals.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final max = entries.isEmpty ? 0.0 : entries.first.value;
+    return [
+      for (var i = 0; i < entries.length; i++)
+        CategorySlice(
+          label: entries[i].key,
+          subtitle:
+              '${widget.bills.where((b) => b.category == entries[i].key).length} bills',
+          amount: entries[i].value,
+          color: palette[i % palette.length],
+          flex: max <= 0 ? 1 : (entries[i].value / max * 100).round(),
+        ),
+    ];
   }
 
   Widget _dueSoonSection() {
@@ -415,24 +500,22 @@ class _BillsDashboardState extends State<BillsDashboard> {
           title: 'Due Soon & Urgent',
           icon: Icons.crisis_alert,
           iconColor: AppColors.secondary,
-          trailing:
-              '${_dueBills.where((bill) => !bill.paid).length} '
-              'Action Required',
+          trailing: '${_dueBills.length} Action Required',
           trailingColor: AppColors.secondary,
         ),
         const SizedBox(height: 10),
-        for (final bill in _dueBills) ...[
-          if (bill.urgent)
+        for (var i = 0; i < _dueBills.length; i++) ...[
+          if (i == 0)
             _UrgentBillCard(
-              bill: bill,
-              paying: _paying,
-              onPay: _payRent,
-              onAutoPay: () => _toggleAutoPay(bill),
+              bill: _dueBills[i],
+              paying: _payingId == _dueBills[i].id,
+              onPay: () => _payBill(_dueBills[i]),
+              onAutoPay: () => _toggleAutoPay(_dueBills[i]),
             )
           else
             _CompactBillCard(
-              bill: bill,
-              onAutoPay: () => _toggleAutoPay(bill),
+              bill: _dueBills[i],
+              onAutoPay: () => _toggleAutoPay(_dueBills[i]),
             ),
           const SizedBox(height: 10),
         ],
@@ -441,13 +524,7 @@ class _BillsDashboardState extends State<BillsDashboard> {
   }
 
   Widget _recentlyPaidSection() {
-    final paid = <BillItem>[
-      if (_rent.paid) _rent,
-      ...widget.bills.where(
-        (bill) => bill.paid && bill.id != 'luxury-rent',
-      ),
-    ].take(3).toList();
-
+    final paid = _paidBills.take(4).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -480,6 +557,9 @@ class _BillsDashboardState extends State<BillsDashboard> {
   }
 
   Widget _subscriptionAudit() {
+    final subscriptions = widget.bills
+        .where((bill) => bill.category == 'Subscriptions' && !bill.paid)
+        .length;
     return AppCard(
       color: AppColors.surfaceLow,
       padding: const EdgeInsets.all(14),
@@ -506,7 +586,9 @@ class _BillsDashboardState extends State<BillsDashboard> {
                   ),
                 ),
                 Text(
-                  'You have 4 active digital subscriptions.',
+                  subscriptions == 0
+                      ? 'No recurring subscriptions tracked.'
+                      : 'You have $subscriptions active digital subscriptions.',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppText.bodySm.copyWith(fontSize: 10.5),
@@ -516,7 +598,7 @@ class _BillsDashboardState extends State<BillsDashboard> {
           ),
           const SizedBox(width: 8),
           AppPill(
-            label: 'Optimize',
+            label: 'Review',
             background: AppColors.surfaceHighest,
             foreground: AppColors.onSurface,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
@@ -583,9 +665,7 @@ class _UrgentBillCard extends StatelessWidget {
                       runSpacing: 4,
                       children: [
                         _MiniBadge(
-                          text: bill.paid
-                              ? 'Paid today'
-                              : bill.dueLabel.replaceAll(' in', ' in'),
+                          text: bill.paid ? 'Paid today' : bill.dueLabel,
                           color: bill.paid
                               ? AppColors.primary
                               : AppColors.secondary,
@@ -671,8 +751,8 @@ class _UrgentBillCard extends StatelessWidget {
                             bill.paid
                                 ? Icons.check_circle
                                 : paying
-                                    ? Icons.sync
-                                    : Icons.bolt,
+                                ? Icons.sync
+                                : Icons.bolt,
                             size: 17,
                             color: bill.paid
                                 ? AppColors.primary
@@ -683,8 +763,8 @@ class _UrgentBillCard extends StatelessWidget {
                             bill.paid
                                 ? 'Paid'
                                 : paying
-                                    ? 'Processing...'
-                                    : 'Pay Now',
+                                ? 'Processing...'
+                                : 'Pay Now',
                             style: AppText.labelMd.copyWith(
                               fontSize: 10.5,
                               color: bill.paid
@@ -880,9 +960,7 @@ class _PaidRow extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  bill.id == 'luxury-rent'
-                      ? 'Paid just now • Bank Transfer'
-                      : bill.subtitle,
+                  bill.subtitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppText.bodySm.copyWith(fontSize: 10),

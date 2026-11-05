@@ -17,17 +17,18 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(const FinTrackApp());
+    await tester.pumpWidget(FinTrackApp(now: DateTime(2026, 11, 5)));
     await tester.pumpAndSettle();
   }
 
-  testWidgets('renders the General dashboard by default', (tester) async {
+  testWidgets('first run shows an empty General dashboard', (tester) async {
     await pumpApp(tester);
 
     expect(find.text('NET CASH FLOW'), findsOneWidget);
-    expect(find.text('\$8,420.50'), findsOneWidget);
+    expect(find.text('\$0.00'), findsWidgets);
     expect(find.text('Cash Flow Activity'), findsOneWidget);
-    expect(find.text('Emergency Fund'), findsOneWidget);
+    expect(find.text('No activity yet'), findsOneWidget);
+    expect(find.text('Stored on this device'), findsOneWidget);
   });
 
   testWidgets('top menu switches between all three dashboards', (tester) async {
@@ -35,38 +36,57 @@ void main() {
 
     await tester.tap(tab('Bills'));
     await tester.pumpAndSettle();
-    expect(find.text('Total Bills for October'), findsOneWidget);
-    expect(find.text('Category Allocation'), findsOneWidget);
-    expect(find.text('Due Soon & Urgent'), findsOneWidget);
+    expect(find.text('Total Bills for November'), findsOneWidget);
+    expect(find.text('No bills yet'), findsOneWidget);
 
     await tester.tap(tab('Income'));
     await tester.pumpAndSettle();
-    expect(find.text('TOTAL RECEIVED • OCTOBER'), findsOneWidget);
+    expect(find.text('TOTAL RECEIVED • NOVEMBER'), findsOneWidget);
     expect(find.text('Income Streams'), findsOneWidget);
-    expect(find.text('Income Trajectory'), findsOneWidget);
+    expect(find.text('No history yet'), findsOneWidget);
 
     await tester.tap(tab('General'));
     await tester.pumpAndSettle();
     expect(find.text('NET CASH FLOW'), findsOneWidget);
   });
 
-  testWidgets('cash flow filter hides inflows and outflows', (tester) async {
+  testWidgets('adding a bill updates the ledger and cash flow filters', (
+    tester,
+  ) async {
     await pumpApp(tester);
 
+    await tester.tap(find.byTooltip('Add transaction'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).at(0), 'Test Bill');
+    await tester.enterText(find.byType(TextField).at(1), '42.50');
+    await tester.tap(find.text('Save Bill'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Test Bill added to bills.'), findsOneWidget);
+    expect(find.text('No bills yet'), findsNothing);
+
+    await tester.tap(tab('General'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Outflow'));
     await tester.pumpAndSettle();
-    expect(find.text('Whole Foods Market'), findsOneWidget);
-    expect(find.text('Salary Direct Deposit'), findsNothing);
+    expect(find.text('Test Bill'), findsWidgets);
 
     await tester.tap(find.text('Inflow'));
     await tester.pumpAndSettle();
-    expect(find.text('Salary Direct Deposit'), findsOneWidget);
-    expect(find.text('Whole Foods Market'), findsNothing);
+    expect(find.text('No activity yet'), findsOneWidget);
   });
 
-  testWidgets('Pay Now settles the rent bill', (tester) async {
+  testWidgets('Pay Now settles a logged bill', (tester) async {
     await pumpApp(tester);
-    await tester.tap(tab('Bills'));
+
+    await tester.tap(find.byTooltip('Add transaction'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).at(0), 'Test Rent');
+    await tester.enterText(find.byType(TextField).at(1), '100');
+    await tester.tap(find.text('Save Bill'));
+    await tester.pumpAndSettle();
+    // Let the "added to bills" snackbar expire before paying.
+    await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();
 
     final scrollable = find.byType(Scrollable).first;
@@ -81,9 +101,8 @@ void main() {
 
     await tester.pump(const Duration(milliseconds: 1300));
     await tester.pump();
-    expect(find.text('Luxury Apartment Rent settled.'), findsOneWidget);
+    expect(find.text('Test Rent settled.'), findsOneWidget);
     expect(find.text('Paid'), findsWidgets);
-    expect(find.text('Paid just now • Bank Transfer'), findsOneWidget);
   });
 
   testWidgets('FAB opens the log sheet and adds a transaction', (tester) async {
@@ -118,7 +137,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Retainer logged as income.'), findsOneWidget);
-    expect(find.text('6,942.50'), findsOneWidget);
+    expect(find.text('92.50'), findsOneWidget);
   });
 
   testWidgets('general add sheet can log either bills or income', (
@@ -230,9 +249,11 @@ void main() {
       find.text('A six-month view of your money momentum.'),
       findsOneWidget,
     );
-    expect(find.text('Avg. velocity: \$5.93k/mo'), findsOneWidget);
-    expect(find.text('Peak performance'), findsOneWidget);
-    expect(find.text('Total committed spend'), findsOneWidget);
+    expect(find.text('No data yet'), findsOneWidget);
+    expect(
+      find.text('Category totals appear after you add bills.'),
+      findsOneWidget,
+    );
 
     await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
@@ -244,15 +265,14 @@ void main() {
       find.text('Every inflow and outflow in one ledger.'),
       findsOneWidget,
     );
-    expect(find.text('+14.2% this month'), findsOneWidget);
-    expect(find.text('-3.8% vs average'), findsOneWidget);
+    expect(find.text('No transactions yet'), findsOneWidget);
 
     await tester.tap(find.text('Dashboard'));
     await tester.pumpAndSettle();
     expect(find.text('NET CASH FLOW'), findsOneWidget);
   });
 
-  testWidgets('notification bell opens the notifications screen', (
+  testWidgets('notification bell opens the empty notifications screen', (
     tester,
   ) async {
     await pumpApp(tester);
@@ -264,21 +284,8 @@ void main() {
       find.text('Stay updated on cash flow, due dates & alerts.'),
       findsOneWidget,
     );
-    expect(find.text('Upcoming Due Date'), findsOneWidget);
-
-    await tester.tap(find.text('Income (2)'));
-    await tester.pumpAndSettle();
-    expect(find.text('Deposit Cleared: TechCorp'), findsOneWidget);
-    expect(find.text('Upcoming Due Date'), findsNothing);
-
-    await tester.tap(find.text('All (8)'));
-    await tester.pumpAndSettle();
-    expect(find.text('Upcoming Due Date'), findsOneWidget);
-
-    await tester.tap(find.byTooltip('Mark all as read'));
-    await tester.pumpAndSettle();
     expect(find.text('0 New alerts'), findsOneWidget);
-    expect(find.text('3 unread'), findsNothing);
+    expect(find.text("You're all caught up"), findsOneWidget);
   });
 
   testWidgets('settings edit and privacy rows open the new screens', (
@@ -290,8 +297,7 @@ void main() {
 
     await tester.tap(find.text('Edit'));
     await tester.pumpAndSettle();
-    expect(find.text('PERSONAL CREDENTIALS'), findsOneWidget);
-    expect(find.text('Alex Morgan'), findsOneWidget);
+    expect(find.text('FULL NAME'), findsOneWidget);
     expect(find.text('Save Changes'), findsOneWidget);
 
     await tester.tap(find.byTooltip('Back'));
@@ -329,6 +335,6 @@ void main() {
     await tester.tap(find.text('Complete Setup & Open Vault'));
     await tester.pumpAndSettle();
     expect(find.text('PREFERENCES'), findsOneWidget);
-    expect(find.text('Vault ready. Welcome back, Alex.'), findsOneWidget);
+    expect(find.text('Vault ready. Welcome.'), findsOneWidget);
   });
 }

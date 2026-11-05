@@ -17,7 +17,9 @@ class TransactionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final amountColor = entry.isIncome ? AppColors.primary : AppColors.secondary;
+    final amountColor = entry.isIncome
+        ? AppColors.primary
+        : AppColors.secondary;
     return Container(
       padding: padding,
       decoration: BoxDecoration(
@@ -82,11 +84,7 @@ class TransactionTile extends StatelessWidget {
 }
 
 class UpcomingBillCard extends StatelessWidget {
-  const UpcomingBillCard({
-    super.key,
-    required this.bill,
-    this.onMarkPaid,
-  });
+  const UpcomingBillCard({super.key, required this.bill, this.onMarkPaid});
 
   final BillItem bill;
   final VoidCallback? onMarkPaid;
@@ -130,9 +128,7 @@ class UpcomingBillCard extends StatelessWidget {
                     children: [
                       IconBadge(
                         icon: bill.icon,
-                        color: urgent
-                            ? AppColors.onSurface
-                            : bill.accent,
+                        color: urgent ? AppColors.onSurface : bill.accent,
                         background: AppColors.surface,
                         size: 40,
                         radius: 10,
@@ -340,10 +336,7 @@ class BillStatTile extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 label,
-                style: AppText.labelSm.copyWith(
-                  fontSize: 9.5,
-                  color: accent,
-                ),
+                style: AppText.labelSm.copyWith(fontSize: 9.5, color: accent),
               ),
             ],
           ),

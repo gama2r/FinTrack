@@ -193,9 +193,7 @@ class _Bar extends StatelessWidget {
               width: 26,
               height: barHeight,
               decoration: BoxDecoration(
-                color: highlighted
-                    ? AppColors.primary
-                    : AppColors.surfaceHigh,
+                color: highlighted ? AppColors.primary : AppColors.surfaceHigh,
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(6),
                 ),
