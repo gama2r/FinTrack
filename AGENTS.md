@@ -4,6 +4,10 @@
 - Single Flutter app (`fin_track`), Dart `^3.13.7`, mobile-first dark UI. No state-management, routing, or codegen packages — plain `setState`.
 - Entry path: `lib/main.dart` → `FinTrackApp` (`lib/app.dart`) → `HomeShell` (`lib/screens/home_shell.dart`).
 
+## Branches
+- `mockup` is only for working with screens generated in Stitch. Do not add app functionality here.
+- `main` is the functional app. Sync UI work from `mockup` into `main`, but keep `main` free of mock/demo data: empty first-run states plus real functionality only.
+
 ## Commands
 ```bash
 flutter pub get
